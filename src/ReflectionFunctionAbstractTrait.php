@@ -12,9 +12,9 @@ trait ReflectionFunctionAbstractTrait
     public function getParameters(?ContainerInterface $container = null): array
     {
         $function = match (true) {
-            $this instanceof ReflectionMethod => [$this->class, $this->name],
-            $this->isClosure() => parent::getClosure(),
-            default => $this->name,
+            $this instanceof ReflectionMethod   => [$this->class, $this->name],
+            $this->isClosure()                  => parent::getClosure(),
+            default                             => $this->name,
         };
         $arguments = [];
         foreach (parent::getParameters() as $parameter) {
