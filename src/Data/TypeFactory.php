@@ -9,6 +9,7 @@ use Sabroan\DI\Data\Type\IntersectionType;
 use Sabroan\DI\Data\Type\NamedType;
 use Sabroan\DI\Data\Type\TypeInterface;
 use Sabroan\DI\Data\Type\UnionType;
+use Sabroan\DI\Exception\ParameterException;
 
 class TypeFactory
 {
@@ -20,7 +21,16 @@ class TypeFactory
             $type instanceof \ReflectionIntersectionType    => new IntersectionType($type, $parameter),
             $type instanceof \ReflectionUnionType           => new UnionType($type, $parameter),
             $type instanceof \ReflectionNamedType           => new NamedType($type, $parameter),
-            default                                         => throw new TypeException($type, 'Unknown type'),
+            default                                         => throw new TypeException(
+                type: $type,
+                message: 'Unknown type',
+                previous: ($parameter)
+                    ? new ParameterException(
+                        parameter: $parameter,
+                        message: "Parameter {$parameter->getDeclaringFunction()}({$parameter}) has an unknown or unsupported type"
+                    )
+                    : null,
+            ),
         };
     }
 }
