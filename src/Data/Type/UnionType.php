@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data\Type;
+namespace Sabroan\DI\Reflection\Data\Type;
 
+/**
+ * @psalm-immutable
+ */
 final readonly class UnionType extends AbstractTypes
 {
     #[\Override]

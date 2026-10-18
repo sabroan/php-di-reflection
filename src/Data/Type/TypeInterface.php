@@ -2,10 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data\Type;
+namespace Sabroan\DI\Reflection\Data\Type;
 
+/**
+ * @psalm-immutable
+ */
 interface TypeInterface extends \Stringable
 {
+    /**
+     * @psalm-mutation-free
+     */
     public function match(mixed $var): bool;
-    public function getClassNames(): iterable;
+
+    /**
+     * @phpstan-pure
+     * @psalm-mutation-free
+     *
+     * @return list<class-string>
+     */
+    public function getClassNames(): array;
 }

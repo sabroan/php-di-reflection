@@ -2,17 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Exception;
+namespace Sabroan\DI\Reflection\Exception;
 
 class ParameterException extends \ReflectionException
 {
+    /** @psalm-suppress PossiblyUnusedProperty */
     public readonly \ReflectionParameter $parameter;
 
+    /**
+     * @psalm-pure
+     */
     public function __construct(
         \ReflectionParameter $parameter,
         string $message = '',
         int $code = 0,
-        ?\Throwable $previous = null
+        ?\Throwable $previous = null,
     ) {
         $this->parameter = $parameter;
         parent::__construct($message, $code, $previous);

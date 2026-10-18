@@ -2,31 +2,38 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data\Type;
+namespace Sabroan\DI\Reflection\Data\Type;
 
-use Sabroan\DI\Data\TypeFactory;
+use Sabroan\DI\Reflection\Data\TypeFactory;
 
+/**
+ * @psalm-immutable
+ */
 abstract readonly class AbstractTypes extends AbstractType
 {
+    /** @var list<TypeInterface> */
     public array $types;
 
+    /**
+     * @phpstan-pure
+     */
     public function __construct(
         public \ReflectionUnionType|\ReflectionIntersectionType $type,
-        public ?\ReflectionParameter $parameter = null,
+        ?\ReflectionParameter $parameter = null,
     ) {
-        parent::__construct($type);
-        $this->types = \array_map(
-            static fn(\ReflectionType $type): TypeInterface => TypeFactory::create($type, $parameter),
-            $this->type->getTypes()
-        );
-    }
+        $types = [];
+        foreach ($this->type->getTypes() as $current) {
+            $types[] = TypeFactory::create($current, $parameter);
+        }
+        $this->types = $types;
 
-    public function getClassNames(): iterable
-    {
+        $classes = [];
         foreach ($this->types as $types) {
             foreach ($types->getClassNames() as $name) {
-                yield $name;
+                $classes[$name] = null;
             }
         }
+
+        parent::__construct($type, \array_keys($classes));
     }
 }

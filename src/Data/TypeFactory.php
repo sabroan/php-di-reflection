@@ -2,17 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data;
+namespace Sabroan\DI\Reflection\Data;
 
-use Sabroan\DI\Data\Exception\TypeException;
-use Sabroan\DI\Data\Type\IntersectionType;
-use Sabroan\DI\Data\Type\NamedType;
-use Sabroan\DI\Data\Type\TypeInterface;
-use Sabroan\DI\Data\Type\UnionType;
-use Sabroan\DI\Exception\ParameterException;
+use Sabroan\DI\Reflection\Data\Exception\TypeException;
+use Sabroan\DI\Reflection\Data\Type\IntersectionType;
+use Sabroan\DI\Reflection\Data\Type\NamedType;
+use Sabroan\DI\Reflection\Data\Type\TypeInterface;
+use Sabroan\DI\Reflection\Data\Type\UnionType;
+use Sabroan\DI\Reflection\Exception\ParameterException;
 
-class TypeFactory
+/**
+ * @api
+ * @psalm-immutable
+ */
+final readonly class TypeFactory
 {
+    /**
+     * @phpstan-pure
+     * @psalm-pure
+     */
     public static function create(
         \ReflectionType $type,
         ?\ReflectionParameter $parameter = null,
@@ -24,10 +32,10 @@ class TypeFactory
             default                                         => throw new TypeException(
                 type: $type,
                 message: 'Unknown type',
-                previous: ($parameter)
+                previous: (null !== $parameter)
                     ? new ParameterException(
                         parameter: $parameter,
-                        message: "Parameter {$parameter->getDeclaringFunction()}({$parameter}) has an unknown or unsupported type"
+                        message: "Parameter has an unknown or unsupported type",
                     )
                     : null,
             ),

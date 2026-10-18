@@ -2,12 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data\Exception;
+namespace Sabroan\DI\Reflection\Data\Exception;
 
-class TypeException extends \ReflectionException
+use ReflectionType;
+use Throwable;
+
+final class TypeException extends \ReflectionException
 {
+    /** @psalm-suppress PossiblyUnusedProperty */
     public readonly ?\ReflectionType $type;
 
+    /**
+     * @psalm-pure
+     */
     public function __construct(
         ?\ReflectionType $type,
         string $message = '',

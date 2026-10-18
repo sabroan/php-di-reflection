@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI;
+namespace Sabroan\DI\Reflection;
 
-class ReflectionMethod extends \ReflectionMethod
+/**
+ * @api
+ * @psalm-suppress ImmutableDependency
+ */
+final class ReflectionMethod extends \ReflectionMethod
 {
     use ReflectionFunctionAbstractTrait;
 
@@ -16,6 +20,9 @@ class ReflectionMethod extends \ReflectionMethod
         return new static($reflection->class, $reflection->name);
     }
 
+    /**
+     * @psalm-capabilities read-props
+     */
     #[\Override]
     public function getDeclaringClass(): ReflectionClass
     {
@@ -23,11 +30,11 @@ class ReflectionMethod extends \ReflectionMethod
     }
 
     #[\Override]
-    public function getPrototype(): static
+    public function getPrototype(): self
     {
         $parent = parent::getPrototype();
 
-        return new static($parent->class, $parent->name);
+        return new self($parent->class, $parent->name);
     }
 
     #[\Override]

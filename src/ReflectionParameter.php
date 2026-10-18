@@ -2,19 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI;
+namespace Sabroan\DI\Reflection;
 
-use Sabroan\DI\Data\Type\TypeInterface;
-use Sabroan\DI\Data\TypeFactory;
-use Sabroan\DI\Exception\ParameterException;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use Sabroan\DI\Reflection\Data\Type\TypeInterface;
+use Sabroan\DI\Reflection\Data\TypeFactory;
+use Sabroan\DI\Reflection\Exception\ParameterException;
 
-class ReflectionParameter extends \ReflectionParameter
+/**
+ * @api
+ * @psalm-suppress ImmutableDependency
+ */
+final class ReflectionParameter extends \ReflectionParameter
 {
     #[\Override]
     public function getDefaultValue(
-        ?ContainerInterface $container = null
+        ?ContainerInterface $container = null,
     ): mixed {
         $type = parent::getType();
         $hasDefault = parent::isDefaultValueAvailable();
@@ -25,17 +29,17 @@ class ReflectionParameter extends \ReflectionParameter
             }
             throw new ParameterException(
                 $this,
-                "Argument {$this->getDeclaringFunction()}({$this}) has neither type nor default value"
+                "Argument {$this->getDeclaringFunction()}({$this}) has neither type nor default value",
             );
         }
 
-        $exception = null;
         if (null !== $container) {
             try {
                 return $this->getNamedValueFromContainer($container);
-            } catch (ParameterException | NotFoundExceptionInterface $exception) {
+            } catch (ParameterException|NotFoundExceptionInterface $exception) {
             }
         }
+
         try {
             return $this->createNamedValue($container);
         } catch (ParameterException $exception) {
@@ -59,33 +63,51 @@ class ReflectionParameter extends \ReflectionParameter
     #[\Override]
     public function getDeclaringFunction(): \ReflectionFunctionAbstract
     {
-        /** @var \ReflectionMethod|\ReflectionFunction $function */
-        $function = parent::getDeclaringFunction();
+        $reflection = parent::getDeclaringFunction();
 
-        if ($function->isClosure() && $closure = $function->getClosure()) {
-            return new ReflectionFunction($closure);
+        if ($reflection instanceof \ReflectionMethod) {
+            return $reflection->isClosure()
+                ? new ReflectionFunction($reflection->getClosure())
+                : new ReflectionMethod(
+                    $reflection->class,
+                    $reflection->name,
+                );
         }
 
-        if ($function instanceof \ReflectionFunction) {
-            return new ReflectionFunction($function->getName());
+        if ($reflection instanceof \ReflectionFunction) {
+            /** @psalm-suppress ArgumentTypeCoercion */
+            return new ReflectionFunction(
+                $reflection->isClosure()
+                    ? $reflection->getClosure()
+                    : $reflection->getName(),
+            );
         }
 
-        if ($function instanceof \ReflectionMethod) {
-            return new ReflectionMethod($function->class, $function->name);
-        }
-
-        return $function;
+        return $reflection;
     }
 
+    /**
+     * @psalm-capabilities read-props
+     */
     #[\Override]
     public function getDeclaringClass(): ?ReflectionClass
     {
+        $function = parent::getDeclaringFunction();
+
+        if ($function->isClosure()) {
+            return null;
+        }
+
         $class = parent::getDeclaringClass();
-        return ($class)
+
+        return null !== $class
             ? new ReflectionClass($class->name)
             : null;
     }
 
+    /**
+     * @psalm-mutation-free
+     */
     #[\Override]
     public function __toString(): string
     {
@@ -100,14 +122,16 @@ class ReflectionParameter extends \ReflectionParameter
         }
 
         if ($this->hasType()) {
-            $return = $this->getType() . ' ' . $return;
+            $return = (string) $this->getType() . ' ' . $return;
         }
 
         if (!$this->isDefaultValueAvailable()) {
             return $return;
         }
 
+        /** @var mixed $default */
         $default = parent::getDefaultValue();
+
         if ($default instanceof \UnitEnum) {
             return $return . ' = ' . $default::class . '::' . $default->name;
         }
@@ -123,6 +147,7 @@ class ReflectionParameter extends \ReflectionParameter
     {
         $types = $this->getTypes();
         $isMismatch = false;
+
         foreach ($types->getClassNames() as $name) {
             if (!$container->has($name)) {
                 continue;
@@ -149,19 +174,20 @@ class ReflectionParameter extends \ReflectionParameter
         if ($isMismatch) {
             throw new ParameterException(
                 $this,
-                "Argument {$this->getDeclaringFunction()}({$this}), retrieved from Container, does not match required type {$types}"
+                "Argument {$this->getDeclaringFunction()}({$this}), retrieved from Container, does not match required type {$types}",
             );
         }
 
-        throw new class(
+        throw new class (
             $this,
-            "Argument {$this->getDeclaringFunction()}({$this}) was not found in the Container"
+            "Argument {$this->getDeclaringFunction()}({$this}) was not found in the Container",
         ) extends ParameterException implements NotFoundExceptionInterface {};
     }
 
     private function createNamedValue(?ContainerInterface $container = null): object
     {
         $types = $this->getTypes();
+
         foreach ($types->getClassNames() as $name) {
             if (!\class_exists($name, true)) {
                 continue;
@@ -169,31 +195,35 @@ class ReflectionParameter extends \ReflectionParameter
 
             try {
                 $class = new ReflectionClass($name);
+
                 if (!$class->isInstantiable()) {
                     continue;
                 }
 
                 $constructor = $class->getConstructor();
+
                 if (null === $constructor) {
                     $instance = $class->newInstanceWithoutConstructor();
-                    if (null !== $instance && $types->match($instance)) {
+                    if ($types->match($instance)) {
                         return $instance;
                     }
                     continue;
                 }
+
                 $canUseLazyGhost = !$class->isInternal() && !$class->isReadOnly();
+
                 $instance = (false === $canUseLazyGhost)
                     ? $class->newInstanceArgs(
-                        $constructor->getParameters($container)
+                        $constructor->getParameters($container),
                     )
                     : $class->newLazyGhost(static function (
-                        object $instance
+                        object $instance,
                     ) use ($container, $constructor): void {
                         $arguments = $constructor->getParameters($container);
-                        $instance->__construct(...$arguments);
+                        $constructor->invokeArgs($instance, $arguments);
                     });
 
-                if (null !== $instance && $types->match($instance)) {
+                if ($types->match($instance)) {
                     return $instance;
                 }
             } catch (\ReflectionException) {
@@ -201,9 +231,9 @@ class ReflectionParameter extends \ReflectionParameter
             }
         }
 
-        throw new class(
+        throw new class (
             $this,
-            "Argument {$this->getDeclaringFunction()}({$this}) could not be created"
+            "Argument {$this->getDeclaringFunction()}({$this}) could not be created",
         ) extends ParameterException {};
     }
 
@@ -214,7 +244,7 @@ class ReflectionParameter extends \ReflectionParameter
         if (null === $type) {
             throw new ParameterException(
                 $this,
-                "Unable to resolve argument {$this->getDeclaringFunction()}({$this}) without a type"
+                "Unable to resolve argument {$this->getDeclaringFunction()}({$this}) without a type",
             );
         }
 

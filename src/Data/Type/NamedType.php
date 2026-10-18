@@ -2,40 +2,28 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI\Data\Type;
+namespace Sabroan\DI\Reflection\Data\Type;
 
+/**
+ * @psalm-immutable
+ */
 final readonly class NamedType extends AbstractType
 {
+    /**
+     * @phpstan-pure
+     */
     public function __construct(
         public \ReflectionNamedType $type,
-        public ?\ReflectionParameter $parameter = null,
+        ?\ReflectionParameter $parameter = null,
     ) {
-        parent::__construct($type);
+        $class = static::getClassName($type, $parameter);
+        $classes = null === $class ? [] : [$class];
+        parent::__construct($type, $classes);
     }
 
-    #[\Override]
-    public function getClassNames(): iterable
-    {
-        if ($this->type->isBuiltin()) {
-            return;
-        }
-
-        if (!$this->parameter) {
-            yield $this->type->getName();
-            return;
-        }
-
-        $class = match (\strtolower($this->type->getName())) {
-            'parent'         => ($this->parameter?->getDeclaringClass()?->getParentClass() ?: null)?->name,
-            'self', 'static' => $this->parameter?->getDeclaringClass()?->name,
-            default          => $this->type->getName(),
-        };
-
-        if (null !== $class) {
-            yield $class;
-        }
-    }
-
+    /**
+     * @psalm-mutation-free
+     */
     #[\Override]
     public function match(mixed $var): bool
     {
@@ -54,5 +42,35 @@ final readonly class NamedType extends AbstractType
         }
 
         return false;
+    }
+
+    /**
+     * @psalm-pure
+     * @return class-string|null
+     */
+    private static function getClassName(
+        \ReflectionNamedType $type,
+        ?\ReflectionParameter $parameter,
+    ): ?string {
+        if ($type->isBuiltin()) {
+            return null;
+        }
+
+        $name = $type->getName();
+
+        if (null === $parameter) {
+            /** @var class-string $name */
+            return $name;
+        }
+
+        $parent = $parameter->getDeclaringClass()?->getParentClass();
+        $class = match (\strtolower($name)) {
+            'parent'         => (false !== $parent) ? $parent?->getName() : null,
+            'self', 'static' => $parameter->getDeclaringClass()?->getName(),
+            default          => $name,
+        };
+
+        /** @var class-string|null $class */
+        return $class;
     }
 }

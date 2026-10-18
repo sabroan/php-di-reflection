@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Sabroan\DI;
+namespace Sabroan\DI\Reflection;
 
-class ReflectionClass extends \ReflectionClass
+/**
+ * @api
+ * @extends \ReflectionClass<object>
+ * @psalm-suppress ImmutableDependency
+ */
+final class ReflectionClass extends \ReflectionClass
 {
     #[\Override]
     public function getConstructor(): ?ReflectionMethod
@@ -13,13 +18,14 @@ class ReflectionClass extends \ReflectionClass
         if (null === $constructor) {
             return null;
         }
-        return $this->getMethod($constructor->name);
+
+        return new ReflectionMethod($this->name, $constructor->name);
     }
 
     #[\Override]
     public function getMethod(string $name): ReflectionMethod
     {
-        return new ReflectionMethod($this->name, $name);
+        return new ReflectionMethod($this->name, parent::getMethod($name)->name);
     }
 
     #[\Override]
@@ -32,12 +38,17 @@ class ReflectionClass extends \ReflectionClass
         return $methods;
     }
 
+    /**
+     * @psalm-capabilities read-props
+     */
     #[\Override]
     public function getParentClass(): static|false
     {
         $parent = parent::getParentClass();
-        return $parent
-            ? new static($parent->name)
-            : false;
+        if (false !== $parent) {
+            return new static($parent->name);
+        }
+
+        return false;
     }
 }
