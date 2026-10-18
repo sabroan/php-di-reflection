@@ -2,7 +2,7 @@
 
 A reflection wrapper library for dependency injection (DI) containers and auto-wiring engines.
 
-Built on PHP's native Reflection API, it extends standard reflection capabilities to resolve dependencies through PSR-11 containers, automatically instantiate missing dependencies, match complex type declarations, and support lazy initialization using PHP 8.4 Lazy Ghost objects.
+Built on PHP's native Reflection API, it extends standard reflection capabilities to resolve dependencies through PSR-11 containers, automatically instantiate missing dependencies, match complex type declarations, and support lazy initialization using Lazy Ghost objects.
 
 ## Features
 
@@ -10,7 +10,7 @@ Built on PHP's native Reflection API, it extends standard reflection capabilitie
 
 - **Automatic Dependency Resolution:** Automatically instantiates eligible dependencies that are not available in the container, recursively resolving their dependencies where possible.
 
-- **PHP 8.4 Lazy Ghost Support:** Leverages `ReflectionClass::newLazyGhost()` for deferred, memory-efficient initialization of eligible classes.
+- **Lazy Ghost Support:** Leverages `ReflectionClass::newLazyGhost()` for deferred, memory-efficient initialization of eligible classes.
 
 - **Comprehensive Type Matching:** Supports named, union, and intersection types, including relative type declarations such as `self`, `static`, and `parent`.
 
@@ -22,54 +22,91 @@ Install the package via Composer:
 
 ## Quick Start
 ### Resolving Classes
-The `ReflectionClass` allows you to instantiate classes by automatically resolving their constructor dependencies. If a dependency is not available in the container, the resolver can instantiate it automatically, recursively resolving its dependencies where possible.
 ```php
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 use Sabroan\DI\Reflection\ReflectionClass;
 
-/** @var ContainerInterface $container */
-$class = new ReflectionClass(Users::class);
+readonly class LoggerService {
+    public function __construct(
+        public LoggerInterface $logger
+    ) {
+        $logger->log('Hello, world!');
+    }
+}
+
+$class = new ReflectionClass(LoggerService::class);
 
 $constructor = $class->getConstructor();
 
-$users = (null === $constructor)
+$service = (null === $constructor)
     ? $class->newInstance()
     : $class->newLazyGhost(
         static fn (object $ghost) => $ghost->__construct(
+            /** @var ContainerInterface $container */
             ...$constructor->getParameters($container)
         )
     );
+
+$service->logger->log('WoW');
 ```
 
-### Resolving Function & Method Arguments
-
-You can automatically extract resolved arguments for any function or method by passing a PSR-11 container instance:
+### Resolving Methods
 ```php
 use Psr\Container\ContainerInterface;
-use Sabroan\DI\Reflection\ReflectionMethod;
+use Psr\Log\LoggerInterface;
+use Sabroan\DI\Reflection\ReflectionClass;
+
+readonly class Greeter {
+    public function greet(LoggerInterface $logger) {
+        $logger->log('Hello, world!');
+    }
+}
+
+$method = new ReflectionMethod(Greeter::class, 'greet');
 
 /** @var ContainerInterface $container */
-
-$method = new ReflectionMethod(MyService::class, 'execute');
-
 $arguments = $method->getParameters($container);
 
-$service = new MyService();
-$method->invokeArgs($service, $arguments);
+$method->invokeArgs(new Greeter(), $arguments);
 ```
 
-### Auto-Resolving Individual Parameters
-
-`ReflectionParameter` extends `\ReflectionParameter` and adds container lookup and dynamic instantiation to `getDefaultValue()`:
+### Resolving Functions
 ```php
 use Psr\Container\ContainerInterface;
-use Sabroan\DI\Reflection\ReflectionParameter;
+use Psr\Log\LoggerInterface;
+use Sabroan\DI\Reflection\ReflectionFunction;
+
+$function = new ReflectionFunction(
+    static function (LoggerInterface $logger): void {
+        $logger->log('Hello, world!');
+    }
+);
 
 /** @var ContainerInterface $container */
+$arguments = $method->getParameters($container);
 
-$parameter = new ReflectionParameter([MyService::class, 'execute'], 'logger');
+$function->invokeArgs($arguments);
+```
 
-$value = $parameter->getDefaultValue($container);
+### Resolving Parameters
+```php
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
+use Sabroan\DI\Reflection\ReflectionParameter;
+
+$closure = static function (LoggerInterface $logger): void {
+    $logger->log('Hello, world!');
+};
+
+$parameter = new ReflectionParameter($closure, 'logger');
+
+/** @var ContainerInterface $container */
+$logger = $parameter->getDefaultValue($container);
+
+assert($logger instanceof LoggerInterface);
+
+$closure($logger);
 ```
 
 ## License
