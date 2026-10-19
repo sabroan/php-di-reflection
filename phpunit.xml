@@ -11,7 +11,7 @@
     resolveDependencies="true"
 >
   <testsuites>
-    <testsuite name="Runner Test Suite">
+    <testsuite name="Test Suite">
       <directory>tests</directory>
     </testsuite>
   </testsuites>
