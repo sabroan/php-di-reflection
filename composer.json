@@ -41,6 +41,7 @@
         "check": [
             "@composer-check",
             "@cs-check",
+            "@phpstan",
             "@psalm",
             "@phpunit"
         ],
